@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Register — Uber QNN{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:600px; margin: 8px auto;">
+  <h2 style="margin-top:0">Create an account</h2>
+  <p class="muted">Register to run forecasts and save your preferences.</p>
+
+  {% if error %}
+    <p style="color:#b91c1c; background:#fff1f2; padding:10px; border-radius:8px;">{{ error }}</p>
+  {% endif %}
+
+  <form method="post" action="/register">
+    <label>Email</label>
+    <input type="email" name="email" required placeholder="you@example.com" />
+
+    <label>Full name (optional)</label>
+    <input type="text" name="full_name" placeholder="Your name" />
+
+    <label>Password</label>
+    <input type="password" name="password" required placeholder="Choose a secure password" />
+
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button type="submit">Register</button>
+      <a href="/login" style="align-self:center; margin-left:8px;">Already have an account? Login</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

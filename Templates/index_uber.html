@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Home — Uber QNN{% endblock %}
+
+{% block head_extra %}
+<!-- small inline helper styles if needed -->
+{% endblock %}
+
+{% block content %}
+<div class="grid">
+  <div>
+    <div class="card">
+      <div class="top-row">
+        <div>
+          <h2 style="margin:0">Uber Close Price — Forecast</h2>
+          <div class="small muted">Last 30 observed values (most recent to right)</div>
+        </div>
+        <div class="small muted">Model: Quantum + Classical hybrid</div>
+      </div>
+
+      <canvas id="priceChart" style="width:100%; height:340px; margin-top:12px;"></canvas>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Predictions</h3>
+
+      {% if forecast %}
+        <p class="muted">Forecast generated for <strong>{{ pred_dates|length }}</strong> day(s):</p>
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Predicted Close</th></tr>
+          </thead>
+          <tbody>
+            {% for row in forecast %}
+              <tr>
+                <td>{{ row.date }}</td>
+                <td>{{ "%.4f"|format(row.pred_close) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">No forecast yet. Run a forecast using the form on the right.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <aside>
+    <div class="card center">
+      {% if user %}
+        <h3 style="margin:0">Hello, {{ user.full_name or user.email }}</h3>
+        <p class="muted">You can run forecasts below.</p>
+        <form method="post" action="/forecast" style="margin-top:12px;">
+          <label>Days to forecast</label>
+          <input type="text" name="days" placeholder="e.g., 5" value="5" />
+
+          <label>Chart type</label>
+          <select name="chart_type">
+            <option value="line" {% if chart_type == "line" %}selected{% endif %}>Line</option>
+            <option value="bar" {% if chart_type == "bar" %}selected{% endif %}>Bar</option>
+          </select>
+
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button type="submit">Run Forecast</button>
+            <a class="secondary" href="/logout" style="display:inline-block; padding:10px 12px; text-decoration:none; border-radius:8px; margin-left:6px;">Logout</a>
+          </div>
+        </form>
+      {% else %}
+        <h3 style="margin:0">Please sign in</h3>
+        <p class="muted">You must be logged in to run forecasts.</p>
+        <div style="display:flex; gap:8px; margin-top:10px; justify-content:center;">
+          <a href="/login"><button class="secondary">Login</button></a>
+          <a href="/register"><button class="secondary">Register</button></a>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h4 style="margin-top:0">Details</h4>
+      <p class="muted">Model uses the last <strong>10</strong> closes and feeds the first <strong>4</strong> scaled values into a quantum circuit (4 qubits), then a small classical head produces the final prediction. Results are inverse-scaled to price units.</p>
+    </div>
+  </aside>
+</div>
+
+<!-- Chart rendering script -->
+<script>
+  // Prepare data arrays from template variables (fallbacks used)
+  const actualDates = {{ actual_dates|tojson }};
+  const actualValues = {{ actual_values|tojson }};
+
+  // If there are predicted values, include them; otherwise empty arrays
+  const predDates = {{ pred_dates|default([])|tojson }};
+  const predValues = {{ pred_values|default([])|tojson }};
+
+  // Build a combined timeline for plotting:
+  // Show the last N actual points (actualDates/actualValues are expected to be last-30)
+  const labels = actualDates.slice(); // copy
+  const dataActual = actualValues.slice();
+
+  // For predictions, we append them after the last actual date so the chart shows continuity
+  // Create arrays for predicted points that align with labels
+  const predStartIndex = labels.length - 1; // last actual index
+  const labelsExtended = labels.concat(predDates || []);
+  const actualDataExtended = dataActual.concat(Array(predDates ? predDates.length : 0).fill(null));
+  const predDataExtended = Array(labels.length).fill(null).concat(predValues || []);
+
+  // Chart.js dataset config
+  const ctx = document.getElementById('priceChart').getContext('2d');
+
+  // Destroy existing chart instance if reloading templates in dev (safeguard)
+  if (window._priceChartInstance) {
+    window._priceChartInstance.destroy();
+  }
+
+  window._priceChartInstance = new Chart(ctx, {
+    type: '{{ chart_type or "line" }}',
+    data: {
+      labels: labelsExtended,
+      datasets: [
+        {
+          label: 'Actual Close',
+          data: actualDataExtended,
+          fill: false,
+          tension: 0.2,
+          borderWidth: 2,
+          pointRadius: 2,
+        },
+        {
+          label: 'Predicted Close',
+          data: predDataExtended,
+          borderDash: [6,4],
+          fill: false,
+          tension: 0.2,
+          borderWidth: 2,
+          pointRadius: 3,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        x: {
+          ticks: { maxRotation: 45, minRotation: 0 }
+        },
+        y: {
+          beginAtZero: false,
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}
